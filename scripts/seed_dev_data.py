@@ -10,8 +10,8 @@ def seed():
     user = User(
         email="test@example.com",
         password_hash="devpassword",
-        first_name="Test",
-        last_name="User"
+        first_name="Sai Arjun",
+        last_name="Koyalkar"
     )
     db.add(user)
     db.flush()

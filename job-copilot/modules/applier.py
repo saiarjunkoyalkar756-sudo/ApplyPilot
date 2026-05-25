@@ -138,7 +138,7 @@ async def fill_greenhouse(page, resume_data):
         await page.fill("input[name='job_application[phone]']", resume_data.get('phone', ''))
         
         # Resume upload
-        resume_file = resume_data.get("resume_pdf_path", "KoyalkarSahithi_Resume.pdf")
+        resume_file = resume_data.get("resume_pdf_path", "resume.pdf")
         if os.path.exists(resume_file):
             await page.set_input_files("input[type='file'][accept*='pdf']", resume_file)
             
@@ -159,7 +159,7 @@ async def fill_lever(page, resume_data):
         await page.fill("input[name='phone']", resume_data.get('phone', ''))
         
         # Resume upload
-        resume_file = resume_data.get("resume_pdf_path", "KoyalkarSahithi_Resume.pdf")
+        resume_file = resume_data.get("resume_pdf_path", "resume.pdf")
         if os.path.exists(resume_file):
             await page.set_input_files("input[type='file']", resume_file)
             
