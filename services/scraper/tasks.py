@@ -3,43 +3,87 @@ from services.shared.logging import get_logger
 from services.shared.database import SessionLocal
 from services.shared.models import Job
 import asyncio
+import random
 from playwright.async_api import async_playwright
+try:
+    from playwright_stealth import stealth
+except ImportError:
+    stealth = None
 
 logger = get_logger("services.scraper.tasks")
 
-@celery_app.task(name="services.scraper.tasks.scrape_indeed")
-def scrape_indeed_task(keywords: str, location: str):
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
+]
+
+@celery_app.task(name="services.scraper.tasks.scrape_linkedin")
+def scrape_linkedin_task(keywords: str, location: str):
     async def run():
         db = SessionLocal()
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            page = await browser.new_record_context().new_page()
-            
-            # Simple Indeed scrape logic
-            url = f"https://www.indeed.com/jobs?q={keywords}&l={location}"
-            logger.info("scraping_started", url=url)
-            await page.goto(url)
-            
-            # Mock extraction for demonstration
-            # In production, use the modules/scraper.py logic here
-            jobs_found = [
-                {"title": "Software Engineer", "company": "Tech Corp", "url": "https://indeed.com/1"},
-                {"title": "Python Developer", "company": "AI Inc", "url": "https://indeed.com/2"}
-            ]
-            
-            for j_data in jobs_found:
-                new_job = Job(
-                    title=j_data['title'],
-                    company=j_data['company'],
-                    url=j_data['url'],
-                    source="indeed"
-                )
-                db.add(new_job)
-            
-            db.commit()
-            await browser.close()
-            logger.info("scraping_complete", jobs_count=len(jobs_found))
-        db.close()
+            try:
+                browser = await p.chromium.launch(headless=True)
+                context = await browser.new_context(user_agent=random.choice(USER_AGENTS))
+                page = await context.new_page()
+                if stealth:
+                    await stealth(page)
+                
+                search_url = f"https://www.linkedin.com/jobs/search?keywords={keywords}&location={location}&f_TPR=r604800"
+                logger.info("scraping_started", url=search_url)
+                
+                await page.goto(search_url, timeout=60000)
+                await asyncio.sleep(random.uniform(3, 8))
+                
+                job_cards = await page.query_selector_all(".base-card")
+                jobs_found = []
+                
+                for card in job_cards[:15]:
+                    try:
+                        title_elem = await card.query_selector(".base-search-card__title")
+                        company_elem = await card.query_selector(".base-search-card__subtitle")
+                        loc_elem = await card.query_selector(".job-search-card__location")
+                        url_elem = await card.query_selector(".base-card__full-link")
+                        
+                        if not all([title_elem, company_elem, loc_elem, url_elem]):
+                            continue
+                            
+                        title = (await title_elem.inner_text()).strip()
+                        company = (await company_elem.inner_text()).strip()
+                        loc = (await loc_elem.inner_text()).strip()
+                        url = await url_elem.get_attribute("href")
+                        url = url.split('?')[0] if url else ""
+                        
+                        # Check if job already exists
+                        existing = db.query(Job).filter(Job.url == url).first()
+                        if not existing and url:
+                            new_job = Job(
+                                title=title,
+                                company=company,
+                                location=loc,
+                                url=url,
+                                source="linkedin"
+                            )
+                            db.add(new_job)
+                            jobs_found.append({"title": title, "company": company})
+                            db.commit()
+                        
+                        await asyncio.sleep(random.uniform(0.5, 1.5))
+                    except Exception as inner_e:
+                        logger.error("card_extract_error", error=str(inner_e))
+                        continue
+                        
+                logger.info("scraping_complete", jobs_count=len(jobs_found))
+            except Exception as e:
+                logger.error("scraping_failed", error=str(e))
+            finally:
+                await browser.close()
+                db.close()
 
     asyncio.run(run())
- stories
+
+@celery_app.task(name="services.scraper.tasks.scrape_indeed")
+def scrape_indeed_task(keywords: str, location: str):
+    # Place holder for indeed following same pattern
+    pass

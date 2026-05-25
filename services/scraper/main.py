@@ -22,8 +22,13 @@ class JobSearch(BaseModel):
 
 @app.post("/api/v1/scraper/jobs/search", status_code=202)
 def search_jobs(search: JobSearch, db: Session = Depends(get_db)):
-    # MVP: Integrates Playwright scraping asynchronously via Celery or BackgroundTasks
+    # Integrates Playwright scraping asynchronously via Celery
     job_batch_id = uuid.uuid4()
+    
+    if "linkedin" in search.boards:
+        # Trigger Celery Task
+        from services.scraper.tasks import scrape_linkedin_task
+        scrape_linkedin_task.delay(keywords=search.keywords, location=search.location)
     
     return {
         "job_id": str(job_batch_id),

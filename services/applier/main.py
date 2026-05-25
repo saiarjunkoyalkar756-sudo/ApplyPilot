@@ -29,6 +29,10 @@ def start_application(app_req: AppStart, db: Session = Depends(get_db)):
     db.add(new_app)
     db.commit()
     
+    # Trigger Celery Task
+    from services.applier.tasks import fill_application_task
+    fill_application_task.delay(application_id=str(app_id))
+    
     return {
         "id": str(app_id),
         "status": "queued",
