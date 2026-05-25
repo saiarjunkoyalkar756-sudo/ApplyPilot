@@ -1,0 +1,30 @@
+replicaCount: 1
+
+image:
+  repository: jobcopilot/service
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: api.jobcopilot.io
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+
+postgresql:
+  enabled: true
+  auth:
+    database: jobcopilot_prod
+    username: jobcopilot
+
+redis:
+  enabled: true

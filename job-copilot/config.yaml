@@ -1,0 +1,22 @@
+# Job Copilot Configuration
+
+# Search Preferences
+target_roles:
+  - "Software Engineer"
+  - "Python Developer"
+  - "Backend Engineer"
+
+locations:
+  - "Remote"
+  - "San Francisco"
+
+# Job Board Limits
+max_searches_per_day: 50
+max_applications_per_day: 15
+
+# Personal Info
+target_salary_min: 100000
+experience_level: "Mid-Senior"
+
+# API Settings
+openai_model: "gpt-4o-mini"

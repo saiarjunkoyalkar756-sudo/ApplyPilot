@@ -1,0 +1,73 @@
+# Core Framework
+fastapi==0.110.0
+uvicorn[standard]==0.29.0
+python-multipart==0.0.9
+pydantic==2.6.4
+pydantic-settings==2.2.1
+email-validator==2.1.1
+
+# Authentication & Security
+python-jose[cryptography]==3.3.0
+passlib[argon2]==1.7.4
+python-dotenv==1.0.1
+cryptography==42.0.5
+pyotp==2.9.0
+
+# Database & ORM
+sqlalchemy==2.0.28
+alembic==1.13.1
+asyncpg==0.29.0
+psycopg2-binary==2.9.9
+redis==5.0.3
+
+# Search & Vector
+elasticsearch==8.12.1
+qdrant-client==1.8.0
+pgvector==0.2.5
+
+# Message Queue
+celery==5.3.6
+kombu==5.3.6
+amqp==5.2.0
+
+# AI / LLM
+openai==1.14.2
+anthropic==0.21.3
+langchain==0.1.12
+langchain-openai==0.0.8
+tiktoken==0.6.0
+
+# Resume Parsing
+pdfplumber==0.11.0
+python-docx==1.1.2
+PyMuPDF==1.23.26
+
+# PDF Generation
+reportlab==4.1.0
+weasyprint==61.2
+Jinja2==3.1.3
+
+# Browser Automation
+playwright==1.42.0
+playwright-stealth==1.0.6
+undetected-playwright==0.0.1
+
+# Web Scraping
+beautifulsoup4==4.12.3
+lxml==5.1.0
+requests==2.31.0
+httpx==0.27.0
+aiohttp==3.9.3
+
+# Data Processing
+pandas==2.2.1
+numpy==1.26.4
+scikit-learn==1.4.1
+scipy==1.12.0
+
+# Utilities
+python-slugify==8.0.4
+Pillow==10.2.0
+python-magic==0.4.27
+tenacity==8.2.3
+structlog==24.1.0

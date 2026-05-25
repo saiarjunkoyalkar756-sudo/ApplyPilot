@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+.env
+*.db
+*.sqlite3
+
+# Node.js
+node_modules/
+.next/
+out/
+build/
+dist/
+.npm
+*.log
+
+# Infrastructure
+.terraform/
+*.tfstate
+*.tfstate.backup
+.vagrant/
+
+# AI / Data
+outputs/
+temp_resume*
+resume.json
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
