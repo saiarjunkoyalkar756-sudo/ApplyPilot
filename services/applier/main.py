@@ -17,6 +17,56 @@ class AppStart(BaseModel):
     generate_tailored_resume: bool = True
     generate_cover_letter: bool = True
 
+from fastapi import FastAPI, Depends, WebSocket, WebSocketDisconnect
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from typing import Dict, List
+import sys
+import os
+import uuid
+import json
+
+# Connection manager for WebSockets
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: Dict[str, List[WebSocket]] = {}
+
+    async def connect(self, websocket: WebSocket, application_id: str):
+        await websocket.accept()
+        if application_id not in self.active_connections:
+            self.active_connections[application_id] = []
+        self.active_connections[application_id].append(websocket)
+
+    def disconnect(self, websocket: WebSocket, application_id: str):
+        if application_id in self.active_connections:
+            self.active_connections[application_id].remove(websocket)
+
+    async def send_personal_message(self, message: str, websocket: WebSocket):
+        await websocket.send_text(message)
+
+    async def broadcast_status(self, application_id: str, message: dict):
+        if application_id in self.active_connections:
+            for connection in self.active_connections[application_id]:
+                await connection.send_json(message)
+
+manager = ConnectionManager()
+
+@app.websocket("/ws/applications/{application_id}")
+async def websocket_endpoint(websocket: WebSocket, application_id: str):
+    await manager.connect(websocket, application_id)
+    try:
+        while True:
+            # Keep connection alive
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, application_id)
+
+@app.post("/api/v1/applications/{application_id}/status")
+async def update_status_broadcast(application_id: str, status_update: dict):
+    # Internal endpoint for workers to broadcast status to UI
+    await manager.broadcast_status(application_id, status_update)
+    return {"status": "broadcasted"}
+
 @app.post("/api/v1/applications", status_code=201)
 def start_application(app_req: AppStart, db: Session = Depends(get_db)):
     app_id = uuid.uuid4()

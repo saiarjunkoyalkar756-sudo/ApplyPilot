@@ -66,8 +66,17 @@ def scrape_linkedin_task(keywords: str, location: str):
                                 source="linkedin"
                             )
                             db.add(new_job)
-                            jobs_found.append({"title": title, "company": company})
                             db.commit()
+                            db.refresh(new_job)
+
+                            # Vectorize for semantic search
+                            try:
+                                from services.shared.vector import upsert_job_vector
+                                upsert_job_vector(str(new_job.id), title, title) # Use title as fallback desc for now
+                            except Exception as vec_e:
+                                logger.error("vectorization_failed", job_id=str(new_job.id), error=str(vec_e))
+
+                            jobs_found.append({"title": title, "company": company})
                         
                         await asyncio.sleep(random.uniform(0.5, 1.5))
                     except Exception as inner_e:

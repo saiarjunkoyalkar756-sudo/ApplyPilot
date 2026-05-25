@@ -41,7 +41,19 @@ def parse_resume_task(resume_id: str):
             response_format={"type": "json_object"}
         )
         
-        resume.parsed_data = response.choices[0].message.content
+        import json
+        structured_data = json.loads(response.choices[0].message.content)
+        
+        # Generate semantic embedding for the resume
+        try:
+            from services.shared.vector import get_embedding
+            # Create a rich text representation of the resume for embedding
+            resume_text = f"Skills: {', '.join(structured_data.get('skills', []))}. Experience: {json.dumps(structured_data.get('experience', []))}"
+            structured_data['embedding'] = get_embedding(resume_text)
+        except Exception as vec_e:
+            logger.error("resume_embedding_failed", resume_id=resume_id, error=str(vec_e))
+
+        resume.parsed_data = structured_data
         db.commit()
         logger.info("parsing_complete", resume_id=resume_id)
         

@@ -10,6 +10,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [scraping, setScraping] = useState(false);
   const [applying, setApplying] = useState<string | null>(null);
+  const [liveStatus, setLiveStatus] = useState<string>("");
 
   useEffect(() => {
     fetchMatches();
@@ -50,24 +51,50 @@ export default function Dashboard() {
     }
   };
 
-  const handleApply = async (matchId: str) => {
+  const handleApply = async (matchId: string) => {
     setApplying(matchId);
+    setLiveStatus("Connecting to automation cluster...");
     try {
-      await axios.post('http://localhost:8006/api/v1/applications', {
+      const res = await axios.post('http://localhost:8006/api/v1/applications', {
         match_id: matchId,
         auto_submit: false
       });
-      alert("Application process started! Form is being filled in the background.");
+      
+      const appId = res.data.id;
+      // Connect to WebSocket
+      const socket = new WebSocket(`ws://localhost:8006/ws/applications/${appId}`);
+      
+      socket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.message) {
+          setLiveStatus(data.message);
+        }
+      };
+
+      socket.onclose = () => {
+        setLiveStatus("Automation process finished.");
+        setTimeout(() => setApplying(null), 3000);
+      };
+
     } catch (e) {
       console.error(e);
       alert("Failed to start applier. Is the service running on :8006?");
-    } finally {
       setApplying(null);
     }
   };
 
   return (
     <main className="min-h-screen bg-gray-50 p-8">
+      {applying && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl border border-blue-100 text-center">
+            <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-6" />
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Robot at Work</h2>
+            <p className="text-blue-600 font-medium animate-pulse">{liveStatus}</p>
+            <p className="text-gray-500 text-sm mt-4 italic">Please wait while the AI fills your application...</p>
+          </div>
+        </div>
+      )}
       <div className="max-w-6xl mx-auto">
         <header className="flex justify-between items-center mb-10">
           <div>

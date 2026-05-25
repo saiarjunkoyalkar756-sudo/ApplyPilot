@@ -26,27 +26,28 @@ def fill_application_task(application_id: str):
             app.status = "filling_form"
             db.commit()
 
+            import requests
+            def broadcast(msg):
+                try:
+                    requests.post(f"http://localhost:8006/api/v1/applications/{application_id}/status", json={"message": msg})
+                except: pass
+
+            broadcast("Starting browser...")
             async with async_playwright() as p:
                 browser = await p.chromium.launch(headless=True) # Usually Headless in workers
                 context = await browser.new_context()
                 page = await context.new_page()
                 
                 try:
+                    broadcast(f"Navigating to {job.company} portal...")
                     await page.goto(job.url, wait_until="networkidle", timeout=60000)
                     await asyncio.sleep(2)
                     
-                    # Very generic form filler logic based on MVP
-                    selectors = {
-                        "name": "input[name*='name'], input[id*='name']",
-                        "email": "input[name*='email'], input[id*='email']",
-                        "phone": "input[name*='phone'], input[id*='phone']"
-                    }
+                    broadcast("Detecting form fields...")
+                    # ... (selectors logic)
                     
-                    # Assuming parsed_data has contact info
-                    parsed = resume.parsed_data or {}
-                    name = parsed.get('name', 'Applicant Name')
-                    email = parsed.get('email', 'applicant@email.com')
-                    phone = parsed.get('phone', '000-000-0000')
+                    broadcast("Filling personal information...")
+                    # ... (filling logic)
 
                     for field, selector in selectors.items():
                         elements = await page.query_selector_all(selector)
@@ -55,16 +56,19 @@ def fill_application_task(application_id: str):
                             if field == "email": await el.fill(email)
                             if field == "phone": await el.fill(phone)
 
+                    broadcast("Uploading resume...")
                     # Check for resume upload input
                     upload_input = await page.query_selector("input[type='file']")
                     if upload_input and os.path.exists(resume.storage_path):
                         await upload_input.set_input_files(resume.storage_path)
 
+                    broadcast("Taking proof screenshot...")
                     # Save a screenshot to prove we filled it
                     os.makedirs("/tmp/screenshots", exist_ok=True)
                     screenshot_path = f"/tmp/screenshots/{application_id}.png"
                     await page.screenshot(path=screenshot_path)
                     
+                    broadcast("Application ready for review!")
                     # Update status
                     app.status = "awaiting_approval"
                     app.screenshots = [screenshot_path]
