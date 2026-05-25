@@ -120,4 +120,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Developed by [KOYALKAR SAHITHI](mailto:koyalkarsahithi956@gmail.com)**
+**Developed by [KOYALKAR SAHITHI](mailto:saiarjujunkoyalkar756@gmail.com)**
