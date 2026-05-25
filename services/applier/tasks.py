@@ -68,11 +68,23 @@ def fill_application_task(application_id: str):
                     screenshot_path = f"/tmp/screenshots/{application_id}.png"
                     await page.screenshot(path=screenshot_path)
                     
-                    broadcast("Application ready for review!")
                     # Update status
                     app.status = "awaiting_approval"
                     app.screenshots = [screenshot_path]
                     db.commit()
+
+                    # Broadcast the specific status to trigger the UI modal
+                    try:
+                        requests.post(
+                            f"http://localhost:8006/api/v1/applications/{application_id}/status", 
+                            json={
+                                "status": "awaiting_approval", 
+                                "message": "Application ready for review!",
+                                "screenshot_url": f"http://localhost:8006/api/v1/applications/{application_id}/screenshot" # Mock URL
+                            }
+                        )
+                    except: pass
+                    
                     logger.info("application_form_filled", app_id=application_id)
 
                 except Exception as inner_e:

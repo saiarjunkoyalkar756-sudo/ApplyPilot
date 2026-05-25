@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Search, FileText, Send, CheckCircle2, PlayCircle, Loader2 } from 'lucide-react';
 import axios from 'axios';
+import ApprovalModal from '@/components/ApprovalModal';
 
 export default function Dashboard() {
   const [matches, setMatches] = useState<any[]>([]);
@@ -11,6 +12,7 @@ export default function Dashboard() {
   const [scraping, setScraping] = useState(false);
   const [applying, setApplying] = useState<string | null>(null);
   const [liveStatus, setLiveStatus] = useState<string>("");
+  const [pendingApp, setPendingApp] = useState<any>(null);
 
   useEffect(() => {
     fetchMatches();
@@ -19,15 +21,13 @@ export default function Dashboard() {
   const fetchMatches = async () => {
     try {
       setLoading(true);
-      // In dev, assuming matcher service is running on 8004
-      const res = await axios.get('http://localhost:8004/api/v1/matches?min_score=70');
+      const res = await axios.get('http://localhost:8004/api/v1/matches?user_id=a380e65a-dc26-42ee-a917-7291e193259e');
       setMatches(res.data.matches || []);
     } catch (error) {
       console.error("Failed to fetch matches", error);
-      // Fallback dummy data if service is not running
       setMatches([
-        { id: "1", match_score: 92.5, job: { title: "Senior Python Developer", company: "Google" } },
-        { id: "2", match_score: 85.0, job: { title: "Backend Engineer", company: "Meta" } }
+        { id: "1", match_score: 92.5, job: { title: "Senior Python Developer", company: "Google", url: "https://google.com" } },
+        { id: "2", match_score: 85.0, job: { title: "Backend Engineer", company: "Meta", url: "https://meta.com" } }
       ]);
     } finally {
       setLoading(false);
@@ -44,7 +44,6 @@ export default function Dashboard() {
       });
       alert("Scraping queued! Check back in a few minutes.");
     } catch (e) {
-      console.error(e);
       alert("Failed to start scraper. Is the service running on :8003?");
     } finally {
       setScraping(false);
@@ -52,6 +51,7 @@ export default function Dashboard() {
   };
 
   const handleApply = async (matchId: string) => {
+    const match = matches.find(m => m.id === matchId);
     setApplying(matchId);
     setLiveStatus("Connecting to automation cluster...");
     try {
@@ -61,30 +61,57 @@ export default function Dashboard() {
       });
       
       const appId = res.data.id;
-      // Connect to WebSocket
       const socket = new WebSocket(`ws://localhost:8006/ws/applications/${appId}`);
       
       socket.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        if (data.message) {
-          setLiveStatus(data.message);
+        if (data.message) setLiveStatus(data.message);
+        
+        if (data.status === 'awaiting_approval') {
+            setPendingApp({
+                id: appId,
+                job_title: match.job.title,
+                company: match.job.company,
+                job_url: match.job.url,
+                screenshot: data.screenshot_url || null
+            });
+            setApplying(null);
+            socket.close();
         }
       };
 
       socket.onclose = () => {
-        setLiveStatus("Automation process finished.");
-        setTimeout(() => setApplying(null), 3000);
+        if (!pendingApp) {
+            setLiveStatus("Automation process finished.");
+            setTimeout(() => setApplying(null), 2000);
+        }
       };
 
     } catch (e) {
-      console.error(e);
       alert("Failed to start applier. Is the service running on :8006?");
       setApplying(null);
     }
   };
 
+  const onApprove = async (id: string) => {
+    try {
+        await axios.post(`http://localhost:8006/api/v1/applications/${id}/approve`, { approved: true });
+        alert("Application submitted successfully!");
+        setPendingApp(null);
+    } catch (e) {
+        alert("Approval failed.");
+    }
+  };
+
   return (
     <main className="min-h-screen bg-gray-50 p-8">
+      <ApprovalModal 
+        isOpen={!!pendingApp} 
+        application={pendingApp} 
+        onApprove={onApprove} 
+        onCancel={() => setPendingApp(null)} 
+      />
+
       {applying && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl border border-blue-100 text-center">
@@ -95,6 +122,7 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
       <div className="max-w-6xl mx-auto">
         <header className="flex justify-between items-center mb-10">
           <div>
@@ -105,7 +133,7 @@ export default function Dashboard() {
             <p className="text-gray-500 mt-2">Production-grade AI Job Automation</p>
           </div>
           <div className="flex gap-4">
-            <Button variant="outline" className="bg-white">
+            <Button variant="outline" className="bg-white border-gray-200">
               <FileText className="w-4 h-4 mr-2" />
               Upload Resume
             </Button>
@@ -116,7 +144,7 @@ export default function Dashboard() {
           </div>
         </header>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="p-6 border-b border-gray-200 bg-gray-50/50">
             <h2 className="text-xl font-semibold text-gray-800">Top Matches</h2>
           </div>
@@ -140,7 +168,7 @@ export default function Dashboard() {
                       <p className="text-gray-600 font-medium">{match.job.company}</p>
                       <p className="text-sm text-gray-500 mt-1 flex items-center gap-1">
                         <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        Skills match your parsed resume
+                        Semantic match found
                       </p>
                     </div>
                   </div>
@@ -157,7 +185,7 @@ export default function Dashboard() {
                       )}
                       Auto-Apply
                     </Button>
-                    <Button variant="outline" size="sm" className="w-32 text-xs">
+                    <Button variant="outline" size="sm" className="w-32 text-xs border-gray-200">
                       Tailor PDF
                     </Button>
                   </div>
